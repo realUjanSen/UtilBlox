@@ -308,7 +308,7 @@ def setup_tray_icon():
 # --- TKINTER GUI ---
 root = tk.Tk()
 root.title("Roblox Idle Monitor")
-root.geometry("400x190")  # Increased width to accommodate trigger->target display
+root.geometry("320x190")  # Optimized width for trigger->target display
 root.resizable(True, True)
 root.attributes("-alpha", 0.7)  # Default alpha is now 0.7
 root.protocol("WM_DELETE_WINDOW", on_window_close)  # Close button quits app
