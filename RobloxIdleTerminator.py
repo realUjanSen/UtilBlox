@@ -13,7 +13,7 @@ from PIL import Image, ImageDraw
 # --- CONFIG ---
 IDLE_THRESHOLD = 1230  # 20.5 minutes
 UPDATE_INTERVAL = 1000  # ms
-LOG_WINDOW_SIZE = 3     # Show last 3 log lines
+LOG_WINDOW_SIZE = 2     # Show only 2 log lines
 
 # --- GLOBALS ----
 last_activity_time = time.time()
@@ -31,7 +31,7 @@ spam_key = 'f'  # Default spam key
 spam_key_active = False
 spam_key_held_start = None  # Track when key was first pressed
 spam_thread = None
-autoclick_hotkey = Key.tab  # Default auto-click toggle key (Tab)
+autoclick_hotkey = 'c'  # Default auto-click hotkey
 autoclick_active = False
 autoclick_thread = None
 autoclick_delay = 0.1  # Click every 100ms (10 clicks per second)
@@ -80,7 +80,6 @@ def apply_theme():
     focus_label.configure(background=theme["bg"], foreground=theme["fg"])
     timer_label.configure(background=theme["bg"], foreground=theme["fg"])
     spam_label.configure(background=theme["bg"], foreground=theme["fg"])
-    spam_status_label.configure(background=theme["bg"], foreground=theme["fg"])
     autoclick_label.configure(background=theme["bg"], foreground=theme["fg"])
     spam_key_entry.configure(bg=theme["entry_bg"], fg=theme["entry_fg"])
     style.configure("TButton", background=theme["btn_bg"], foreground=theme["btn_fg"])
@@ -267,9 +266,9 @@ timer_label.grid(row=1, column=3, sticky="nsew", padx=1, pady=1)
 log_frame = ttk.Frame(root, style="Main.TFrame")
 log_frame.pack(fill='both', expand=True, padx=2, pady=1)
 
-# Use tk.Text instead of ScrolledText, set height=3 for 3 lines, no scrollbar
+# Use tk.Text instead of ScrolledText, set height=2 for 2 lines, no scrollbar
 output_box = tk.Text(
-    log_frame, height=3, font=('Arial', 7),
+    log_frame, height=2, font=('Arial', 7),
     bg=DARK["bg"], fg=DARK["fg"], insertbackground=DARK["fg"], borderwidth=1, relief="solid"
 )
 output_box.pack(expand=True, fill='both')
@@ -318,15 +317,7 @@ def get_readable_button(button):
     return mapping.get(button, str(button))
 
 def on_key_press(key):
-    global last_activity_time, spam_key_held_start, spam_key
-    
-    # Update spam_key from entry field dynamically
-    try:
-        current_spam_key = spam_key_entry.get().lower().strip()
-        if current_spam_key and len(current_spam_key) == 1:
-            spam_key = current_spam_key
-    except:
-        pass
+    global last_activity_time, spam_key_held_start
     
     # Get the character representation of the key
     key_char = None
@@ -340,8 +331,8 @@ def on_key_press(key):
         # Schedule check after 700ms
         threading.Timer(SPAM_ACTIVATION_DELAY, check_spam_key_held).start()
     
-    # Check for auto-click toggle hotkey (Tab key)
-    if key == autoclick_hotkey:
+    # Check for auto-click toggle hotkey
+    if key_char == autoclick_hotkey:
         toggle_autoclick()
     
     # Original activity tracking for Roblox
@@ -456,20 +447,33 @@ dark_mode_btn.pack(side='left', padx=2)
 spam_frame = ttk.Frame(root, style="Main.TFrame")
 spam_frame.pack(pady=2, fill='x', padx=2)
 
-# Key Spammer controls (no Set button - always listening)
-spam_label = ttk.Label(spam_frame, text="Spam Key:", font=('Arial', 7), background=DARK["bg"], foreground=DARK["fg"])
+# Key Spammer controls
+spam_label = ttk.Label(spam_frame, text="Hold to Spam:", font=('Arial', 7), background=DARK["bg"], foreground=DARK["fg"])
 spam_label.pack(side='left', padx=2)
 
 spam_key_entry = tk.Entry(spam_frame, width=2, font=('Arial', 8), bg=DARK["entry_bg"], fg=DARK["entry_fg"], justify='center')
 spam_key_entry.insert(0, spam_key.upper())
-spam_key_entry.pack(side='left', padx=2)
+spam_key_entry.pack(side='left', padx=1)
 
-spam_status_label = ttk.Label(spam_frame, text="(Listening)", font=('Arial', 7), background=DARK["bg"], foreground=DARK["fg"])
-spam_status_label.pack(side='left', padx=2)
+def apply_spam_key():
+    update_spam_key(spam_key_entry.get())
 
-# Auto-clicker info (no button - use Tab to toggle)
-autoclick_label = ttk.Label(spam_frame, text="AutoClick: Tab", font=('Arial', 7), background=DARK["bg"], foreground=DARK["fg"])
-autoclick_label.pack(side='left', padx=(10, 2))
+spam_set_btn = ttk.Button(spam_frame, text="Set", command=apply_spam_key, width=3)
+spam_set_btn.pack(side='left', padx=1)
+
+# Auto-clicker controls  
+autoclick_label = ttk.Label(spam_frame, text="AutoClick:", font=('Arial', 7), background=DARK["bg"], foreground=DARK["fg"])
+autoclick_label.pack(side='left', padx=(8, 2))
+
+autoclick_toggle_btn = ttk.Button(spam_frame, text="Start", command=toggle_autoclick, width=5)
+autoclick_toggle_btn.pack(side='left', padx=2)
+
+def update_autoclick_button_text():
+    """Update button text based on autoclick state"""
+    autoclick_toggle_btn.config(text="Stop" if autoclick_active else "Start")
+    root.after(200, update_autoclick_button_text)
+
+update_autoclick_button_text()  # Start updating button text
 
 apply_theme()  # Set initial theme
 
