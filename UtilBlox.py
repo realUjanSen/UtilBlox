@@ -39,6 +39,7 @@ spam_delay = 0.001  # Default 1ms between spam key presses (very fast)
 spam_key_pressed = False  # Track if spam key is currently pressed
 last_key_release_time = 0  # Track last release time for debouncing
 KEY_DEBOUNCE_DELAY = 0.05  # 50ms debounce delay to ignore rapid press/release
+ignore_own_keypress = False  # Flag to ignore our own generated key presses
 autoclick_hotkey = 'tab'  # Default auto-click toggle key (Tab)
 autoclick_active = False
 autoclick_thread = None
@@ -107,14 +108,19 @@ def toggle_dark_mode():
 # --- KEY SPAMMER AND AUTO-CLICKER FUNCTIONS ---
 def spam_key_loop():
     """Continuously press the configured spam key while active"""
-    global spam_key_active
+    global spam_key_active, ignore_own_keypress
     press_count = 0
     while spam_key_active:
         try:
             press_start = time.time()
+            
+            # Set flag to ignore our own generated key events
+            ignore_own_keypress = True
             kb_controller.press(spam_key)
             time.sleep(0.001)  # Minimal delay between press and release
             kb_controller.release(spam_key)
+            ignore_own_keypress = False
+            
             press_end = time.time()
             press_count += 1
             
@@ -405,7 +411,11 @@ def get_key_string(key):
         return key_name
 
 def on_key_press(key):
-    global last_activity_time, spam_key_held_start, spam_key, spam_key_pressed, last_key_release_time
+    global last_activity_time, spam_key_held_start, spam_key, spam_key_pressed, last_key_release_time, ignore_own_keypress
+    
+    # Ignore our own generated key presses
+    if ignore_own_keypress:
+        return
     
     # Update spam_key from entry field dynamically
     try:
@@ -424,11 +434,11 @@ def on_key_press(key):
     if spam_listening and key_char == spam_key:
         current_time = time.time()
         
-        # Check if this is a new press (not a repeat/bounce)
-        if not spam_key_pressed and (current_time - last_key_release_time) > KEY_DEBOUNCE_DELAY:
+        # Check if this is a new press (not a repeat/bounce) and not already spamming
+        if not spam_key_pressed and not spam_key_active and (current_time - last_key_release_time) > KEY_DEBOUNCE_DELAY:
             spam_key_pressed = True
             # Only start tracking if not already tracking
-            if spam_key_held_start is None and not spam_key_active:
+            if spam_key_held_start is None:
                 spam_key_held_start = time.time()
                 log(f"KEY HELD: '{spam_key.upper()}' pressed, waiting {SPAM_ACTIVATION_DELAY*1000:.0f}ms for spam activation")
                 # Schedule check after 700ms delay
@@ -444,12 +454,18 @@ def on_key_press(key):
     if is_roblox_running():
         if is_roblox_focused():
             readable = get_readable_key(key)
-            log(f"Key: {readable}")
+            # Don't log our own spam key presses in activity
+            if not (spam_key_active and key_char == spam_key):
+                log(f"Key: {readable}")
             last_activity_time = time.time()
 
 def on_key_release(key):
     """Handle key release events"""
-    global spam_key_active, spam_key_held_start, spam_key_pressed, last_key_release_time
+    global spam_key_active, spam_key_held_start, spam_key_pressed, last_key_release_time, ignore_own_keypress
+    
+    # Ignore our own generated key releases
+    if ignore_own_keypress:
+        return
     
     # Stop spam when spam key is released (only if spam listening is enabled)
     if spam_listening:
