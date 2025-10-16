@@ -1,0 +1,29 @@
+[2025-10-16 13:09:15.152] Started monitoring Roblox inactivity.
+[2025-10-16 13:09:19.628] Spam key listening started
+[2025-10-16 13:09:22.488] KEY HELD: 'F' pressed, waiting 700ms for spam activation
+[2025-10-16 13:09:23.235] SPAM ACTIVATED: Key 'F' after 745.8ms hold (delay: 1.0ms)
+[2025-10-16 13:09:23.262] KEY RELEASED: 'F' - ending hold session
+0ms)
+[2025-10-16 13:09:23.263] SPAM STOPPED: Key 'F' released
+[2025-10-16 13:09:23.267] KEY HELD: 'F' pressed, waiting 700ms for spam activation
+[2025-10-16 13:09:23.610] KEY RELEASED: 'F' - ending hold session
+[2025-10-16 13:09:24.519] KEY HELD: 'F' pressed, waiting 700ms for spam activation
+[2025-10-16 13:09:25.253] SPAM ACTIVATED: Key 'F' after 711.2ms hold (delay: 1.0ms)
+[2025-10-16 13:09:25.283] SPAM #1: Key 'F' pressed (duration: 33.283ms)
+[2025-10-16 13:09:25.310] KEY RELEASED: 'F' - ending hold session
+[2025-10-16 13:09:25.319] SPAM STOPPED: Key 'F' released
+[2025-10-16 13:09:25.321] KEY HELD: 'F' pressed, waiting 700ms for spam activation
+[2025-10-16 13:09:25.354] KEY RELEASED: 'F' - ending hold session
+6ms)
+[2025-10-16 13:09:25.356] KEY HELD: 'F' pressed, waiting 700ms for spam activation
+[2025-10-16 13:09:25.893] KEY RELEASED: 'F' - ending hold session
+[2025-10-16 13:11:13.908] Started monitoring Roblox inactivity.
+[2025-10-16 13:11:16.577] Spam key listening started
+[2025-10-16 13:11:18.687] KEY HELD: 'F' pressed, waiting 700ms for spam activation
+[2025-10-16 13:11:19.394] SPAM ACTIVATED: Key 'F' after 706.0ms hold (delay: 1.0ms)
+[2025-10-16 13:11:19.412] KEY RELEASED: 'F' - ending hold session
+2ms)
+[2025-10-16 13:11:19.414] SPAM STOPPED: Key 'F' released
+[2025-10-16 13:11:19.489] KEY HELD: 'F' pressed, waiting 700ms for spam activation
+[2025-10-16 13:11:20.053] KEY RELEASED: 'F' - ending hold session
+[2025-10-16 13:11:24.305] Spam key listening stopped

@@ -36,6 +36,9 @@ spam_key_held_start = None  # Track when key was first pressed
 spam_thread = None
 spam_listening = False  # Whether spam key listener is active
 spam_delay = 0.001  # Default 1ms between spam key presses (very fast)
+spam_key_pressed = False  # Track if spam key is currently pressed
+last_key_release_time = 0  # Track last release time for debouncing
+KEY_DEBOUNCE_DELAY = 0.05  # 50ms debounce delay to ignore rapid press/release
 autoclick_hotkey = 'tab'  # Default auto-click toggle key (Tab)
 autoclick_active = False
 autoclick_thread = None
@@ -402,7 +405,7 @@ def get_key_string(key):
         return key_name
 
 def on_key_press(key):
-    global last_activity_time, spam_key_held_start, spam_key
+    global last_activity_time, spam_key_held_start, spam_key, spam_key_pressed, last_key_release_time
     
     # Update spam_key from entry field dynamically
     try:
@@ -419,14 +422,18 @@ def on_key_press(key):
     
     # Check for spam key press (only if spam listening is enabled)
     if spam_listening and key_char == spam_key:
-        # Only start tracking if not already tracking (ignore repeated key events during hold)
-        if spam_key_held_start is None and not spam_key_active:
-            # First press - start tracking, log the initial press
-            spam_key_held_start = time.time()
-            log(f"KEY HELD: '{spam_key.upper()}' pressed, waiting {SPAM_ACTIVATION_DELAY*1000:.0f}ms for spam activation")
-            # Schedule check after 700ms delay
-            threading.Timer(SPAM_ACTIVATION_DELAY, check_spam_key_held).start()
-        # If already spamming, ignore additional key press events (they're from the hold)
+        current_time = time.time()
+        
+        # Check if this is a new press (not a repeat/bounce)
+        if not spam_key_pressed and (current_time - last_key_release_time) > KEY_DEBOUNCE_DELAY:
+            spam_key_pressed = True
+            # Only start tracking if not already tracking
+            if spam_key_held_start is None and not spam_key_active:
+                spam_key_held_start = time.time()
+                log(f"KEY HELD: '{spam_key.upper()}' pressed, waiting {SPAM_ACTIVATION_DELAY*1000:.0f}ms for spam activation")
+                # Schedule check after 700ms delay
+                threading.Timer(SPAM_ACTIVATION_DELAY, check_spam_key_held).start()
+        # Ignore repeated key press events during hold
     
     # Check for auto-click toggle hotkey
     key_string = get_key_string(key)
@@ -442,7 +449,7 @@ def on_key_press(key):
 
 def on_key_release(key):
     """Handle key release events"""
-    global spam_key_active, spam_key_held_start
+    global spam_key_active, spam_key_held_start, spam_key_pressed, last_key_release_time
     
     # Stop spam when spam key is released (only if spam listening is enabled)
     if spam_listening:
@@ -450,7 +457,11 @@ def on_key_release(key):
         if hasattr(key, 'char') and key.char is not None:
             key_char = key.char.lower()
         
-        if key_char == spam_key:
+        if key_char == spam_key and spam_key_pressed:
+            # Mark key as released and record time
+            spam_key_pressed = False
+            last_key_release_time = time.time()
+            
             # Only log release if we were actually tracking this key
             if spam_key_held_start is not None or spam_key_active:
                 log(f"KEY RELEASED: '{spam_key.upper()}' - ending hold session")
