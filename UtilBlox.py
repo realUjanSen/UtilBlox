@@ -480,6 +480,7 @@ apply_theme()  # Set initial theme
 # Setup system tray icon
 setup_tray_icon()
 
-# DON'T start monitoring by default - user clicks Start when ready
+# Start Roblox monitoring by default (spam/autoclick remain OFF by default)
+start_monitoring()
 update_gui()
 root.mainloop()
