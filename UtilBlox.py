@@ -30,16 +30,16 @@ window_visible = True
 # Key spammer and auto-clicker globals
 kb_controller = KeyboardController()
 mouse_controller = MouseController()
-spam_key = 'f'  # Default spam key
+spam_key = 'f'  # Key to spam (what gets sent)
+spam_trigger_key = 'g'  # Key to hold (what user presses)
 spam_key_active = False
-spam_key_held_start = None  # Track when key was first pressed
+spam_key_held_start = None  # Track when trigger key was first pressed
 spam_thread = None
 spam_listening = False  # Whether spam key listener is active
 spam_delay = 0.001  # Default 1ms between spam key presses (very fast)
-spam_key_pressed = False  # Track if spam key is currently pressed
+spam_trigger_pressed = False  # Track if trigger key is currently pressed
 last_key_release_time = 0  # Track last release time for debouncing
 KEY_DEBOUNCE_DELAY = 0.05  # 50ms debounce delay to ignore rapid press/release
-ignore_own_keypress = False  # Flag to ignore our own generated key presses
 autoclick_hotkey = 'tab'  # Default auto-click toggle key (Tab)
 autoclick_active = False
 autoclick_thread = None
@@ -89,10 +89,12 @@ def apply_theme():
     focus_label.configure(background=theme["bg"], foreground=theme["fg"])
     timer_label.configure(background=theme["bg"], foreground=theme["fg"])
     spam_label.configure(background=theme["bg"], foreground=theme["fg"])
+    spam_arrow_label.configure(background=theme["bg"], foreground=theme["fg"])
     spam_delay_label.configure(background=theme["bg"], foreground=theme["fg"])
     autoclick_label.configure(background=theme["bg"], foreground=theme["fg"])
     delay_label.configure(background=theme["bg"], foreground=theme["fg"])
     spam_key_entry.configure(bg=theme["entry_bg"], fg=theme["entry_fg"])
+    spam_trigger_entry.configure(bg=theme["entry_bg"], fg=theme["entry_fg"])
     spam_delay_entry.configure(bg=theme["entry_bg"], fg=theme["entry_fg"])
     autoclick_key_entry.configure(bg=theme["entry_bg"], fg=theme["entry_fg"])
     autoclick_delay_entry.configure(bg=theme["entry_bg"], fg=theme["entry_fg"])
@@ -108,19 +110,15 @@ def toggle_dark_mode():
 # --- KEY SPAMMER AND AUTO-CLICKER FUNCTIONS ---
 def spam_key_loop():
     """Continuously press the configured spam key while active"""
-    global spam_key_active, ignore_own_keypress
+    global spam_key_active
     press_count = 0
+    
     while spam_key_active:
         try:
             press_start = time.time()
-            
-            # Set flag to ignore our own generated key events
-            ignore_own_keypress = True
             kb_controller.press(spam_key)
             time.sleep(0.001)  # Minimal delay between press and release
-            kb_controller.release(spam_key)
-            ignore_own_keypress = False
-            
+            kb_controller.release(spam_key) 
             press_end = time.time()
             press_count += 1
             
@@ -132,26 +130,30 @@ def spam_key_loop():
         except Exception as e:
             log(f"Key spam error: {e}")
             break
+    log(f"SPAM LOOP ENDED: Exited loop with spam_key_active={spam_key_active}")
 
 def check_spam_key_held():
-    """Check if spam key has been held for 700ms, then start spamming"""
+    """Check if trigger key has been held for 700ms, then start spamming"""
     global spam_key_active, spam_key_held_start, spam_thread
     
-    if spam_key_held_start is not None:
+    # Only activate if we're still tracking the trigger key hold
+    if spam_key_held_start is not None and spam_trigger_pressed:
         held_duration = time.time() - spam_key_held_start
         if held_duration >= SPAM_ACTIVATION_DELAY and not spam_key_active:
-            # Key has been held for 700ms, start spamming
+            # Trigger key has been held for 700ms, start spamming the target key
             spam_key_active = True
             spam_thread = threading.Thread(target=spam_key_loop, daemon=True)
             spam_thread.start()
-            log(f"SPAM ACTIVATED: Key '{spam_key.upper()}' after {held_duration*1000:.1f}ms hold (delay: {spam_delay*1000:.1f}ms)")
+            log(f"SPAM ACTIVATED: Trigger '{spam_trigger_key.upper()}' held {held_duration*1000:.1f}ms -> spamming '{spam_key.upper()}' (delay: {spam_delay*1000:.1f}ms)")
+    else:
+        log(f"SPAM CANCELLED: Trigger key '{spam_trigger_key.upper()}' released before {SPAM_ACTIVATION_DELAY*1000:.0f}ms timeout")
 
 def stop_spam_key():
     """Stop the key spammer"""
     global spam_key_active, spam_key_held_start
     if spam_key_active:
         spam_key_active = False
-        log(f"SPAM STOPPED: Key '{spam_key.upper()}' released")
+        log(f"SPAM STOPPED: Trigger '{spam_trigger_key.upper()}' released -> stopping '{spam_key.upper()}' spam")
     spam_key_held_start = None
 
 def autoclick_loop():
@@ -221,13 +223,22 @@ def update_spam_delay(delay_ms):
         log("Invalid delay format")
 
 def update_spam_key(new_key):
-    """Update the spam key from GUI input"""
+    """Update the spam target key from GUI input"""
     global spam_key
     if new_key and len(new_key) == 1:
         spam_key = new_key.lower()
-        log(f"Spam key set to: {spam_key.upper()}")
+        log(f"Spam target key set to: {spam_key.upper()}")
     else:
         log("Invalid spam key (use single character)")
+
+def update_spam_trigger_key(new_key):
+    """Update the spam trigger key"""
+    global spam_trigger_key
+    if new_key and len(new_key) == 1:
+        spam_trigger_key = new_key.lower()
+        log(f"Spam trigger key set to: {spam_trigger_key.upper()}")
+    else:
+        log("Invalid trigger key (use single character)")
 
 def truncate_text(text, max_length=17):  # Now 17 characters
     return text if len(text) <= max_length else text[:max_length-3] + "..."
@@ -297,7 +308,7 @@ def setup_tray_icon():
 # --- TKINTER GUI ---
 root = tk.Tk()
 root.title("Roblox Idle Monitor")
-root.geometry("350x190")  # Increased width to accommodate spam delay controls
+root.geometry("400x190")  # Increased width to accommodate trigger->target display
 root.resizable(True, True)
 root.attributes("-alpha", 0.7)  # Default alpha is now 0.7
 root.protocol("WM_DELETE_WINDOW", on_window_close)  # Close button quits app
@@ -411,17 +422,17 @@ def get_key_string(key):
         return key_name
 
 def on_key_press(key):
-    global last_activity_time, spam_key_held_start, spam_key, spam_key_pressed, last_key_release_time, ignore_own_keypress
+    global last_activity_time, spam_key_held_start, spam_key, spam_trigger_key, spam_trigger_pressed, last_key_release_time
     
-    # Ignore our own generated key presses
-    if ignore_own_keypress:
-        return
-    
-    # Update spam_key from entry field dynamically
+    # Update spam keys from entry fields dynamically
     try:
         current_spam_key = spam_key_entry.get().lower().strip()
         if current_spam_key and len(current_spam_key) == 1:
             spam_key = current_spam_key
+        
+        current_trigger_key = spam_trigger_entry.get().lower().strip()
+        if current_trigger_key and len(current_trigger_key) == 1:
+            spam_trigger_key = current_trigger_key
     except:
         pass
     
@@ -430,20 +441,19 @@ def on_key_press(key):
     if hasattr(key, 'char') and key.char is not None:
         key_char = key.char.lower()
     
-    # Check for spam key press (only if spam listening is enabled)
-    if spam_listening and key_char == spam_key:
+    # Check for spam trigger key press (only if spam listening is enabled)
+    if spam_listening and key_char == spam_trigger_key:
         current_time = time.time()
         
         # Check if this is a new press (not a repeat/bounce) and not already spamming
-        if not spam_key_pressed and not spam_key_active and (current_time - last_key_release_time) > KEY_DEBOUNCE_DELAY:
-            spam_key_pressed = True
+        if not spam_trigger_pressed and not spam_key_active and (current_time - last_key_release_time) > KEY_DEBOUNCE_DELAY:
+            spam_trigger_pressed = True
             # Only start tracking if not already tracking
             if spam_key_held_start is None:
                 spam_key_held_start = time.time()
-                log(f"KEY HELD: '{spam_key.upper()}' pressed, waiting {SPAM_ACTIVATION_DELAY*1000:.0f}ms for spam activation")
+                log(f"TRIGGER HELD: '{spam_trigger_key.upper()}' pressed, waiting {SPAM_ACTIVATION_DELAY*1000:.0f}ms to spam '{spam_key.upper()}'")
                 # Schedule check after 700ms delay
                 threading.Timer(SPAM_ACTIVATION_DELAY, check_spam_key_held).start()
-        # Ignore repeated key press events during hold
     
     # Check for auto-click toggle hotkey
     key_string = get_key_string(key)
@@ -454,33 +464,28 @@ def on_key_press(key):
     if is_roblox_running():
         if is_roblox_focused():
             readable = get_readable_key(key)
-            # Don't log our own spam key presses in activity
-            if not (spam_key_active and key_char == spam_key):
-                log(f"Key: {readable}")
+            # Log all key presses including our spam output
+            log(f"Key: {readable}")
             last_activity_time = time.time()
 
 def on_key_release(key):
     """Handle key release events"""
-    global spam_key_active, spam_key_held_start, spam_key_pressed, last_key_release_time, ignore_own_keypress
+    global spam_key_active, spam_key_held_start, spam_trigger_pressed, last_key_release_time
     
-    # Ignore our own generated key releases
-    if ignore_own_keypress:
-        return
-    
-    # Stop spam when spam key is released (only if spam listening is enabled)
+    # Stop spam when trigger key is released (only if spam listening is enabled)
     if spam_listening:
         key_char = None
         if hasattr(key, 'char') and key.char is not None:
             key_char = key.char.lower()
         
-        if key_char == spam_key and spam_key_pressed:
-            # Mark key as released and record time
-            spam_key_pressed = False
+        if key_char == spam_trigger_key and spam_trigger_pressed:
+            # Mark trigger key as released and record time
+            spam_trigger_pressed = False
             last_key_release_time = time.time()
             
             # Only log release if we were actually tracking this key
             if spam_key_held_start is not None or spam_key_active:
-                log(f"KEY RELEASED: '{spam_key.upper()}' - ending hold session")
+                log(f"TRIGGER RELEASED: '{spam_trigger_key.upper()}' - ending spam session (was_spamming: {spam_key_active})")
             stop_spam_key()
 
 def on_click(x, y, button, pressed):
@@ -577,8 +582,15 @@ spam_frame = ttk.Frame(root, style="Main.TFrame")
 spam_frame.pack(pady=2, fill='x', padx=2)
 
 # Key Spammer controls
-spam_label = ttk.Label(spam_frame, text="Spam:", font=('Arial', 7), background=DARK["bg"], foreground=DARK["fg"])
+spam_label = ttk.Label(spam_frame, text="Hold:", font=('Arial', 7), background=DARK["bg"], foreground=DARK["fg"])
 spam_label.pack(side='left', padx=2)
+
+spam_trigger_entry = tk.Entry(spam_frame, width=2, font=('Arial', 8), bg=DARK["entry_bg"], fg=DARK["entry_fg"], justify='center')
+spam_trigger_entry.insert(0, spam_trigger_key.upper())
+spam_trigger_entry.pack(side='left', padx=1)
+
+spam_arrow_label = ttk.Label(spam_frame, text="→", font=('Arial', 7), background=DARK["bg"], foreground=DARK["fg"])
+spam_arrow_label.pack(side='left', padx=2)
 
 spam_key_entry = tk.Entry(spam_frame, width=2, font=('Arial', 8), bg=DARK["entry_bg"], fg=DARK["entry_fg"], justify='center')
 spam_key_entry.insert(0, spam_key.upper())
@@ -586,6 +598,9 @@ spam_key_entry.pack(side='left', padx=1)
 
 def apply_spam_key():
     update_spam_key(spam_key_entry.get())
+
+def apply_spam_trigger_key():
+    update_spam_trigger_key(spam_trigger_entry.get())
 
 def apply_autoclick_key():
     update_autoclick_key(autoclick_key_entry.get())
@@ -601,7 +616,7 @@ def update_spam_listening_button():
     spam_listen_btn.config(text="Stop Listening" if spam_listening else "Start Listening")
     root.after(200, update_spam_listening_button)
 
-spam_listen_btn = ttk.Button(spam_frame, text="Start Listening", command=toggle_spam_listening, width=12)
+spam_listen_btn = ttk.Button(spam_frame, text="Start Listening", command=toggle_spam_listening, width=10)
 spam_listen_btn.pack(side='left', padx=2)
 
 spam_delay_label = ttk.Label(spam_frame, text="Delay(ms):", font=('Arial', 7), background=DARK["bg"], foreground=DARK["fg"])
