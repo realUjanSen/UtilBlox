@@ -14,7 +14,7 @@ UtilBlox aims to add new features to extend its functionality. The core idea of 
 ## Getting Started
 1. Clone the repository:
    ```
-   git clone <repository-url>
+   git clone github.com/realUjanSen/UtilBlox
    ```
 2. Navigate to the project directory:
    ```
